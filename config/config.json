@@ -1,0 +1,56 @@
+{
+
+	"watch-folder-posix": "/Volumes/OSX_USB/Dropbox/DedosMedia/keshot/monitor/watch",
+	"watch-folder-nt" : "I:/Dropbox/DedosMedia/keshot/monitor/watch",
+	"input-file": "input.jpg",
+	"output-subfolder": "",
+	"output-file": "output.jpg",
+
+	"image-size": "1920x1280",
+
+
+	"log-config": {
+        "version": 1,
+        "root": {
+            "level": "DEBUG",
+            "handlers": [
+                "console",
+                "file_all",
+                "file_error"
+            ]
+        },
+        "formatters": {
+            "simple": {
+                "format": "%(filename)s:%(lineno)d \t %(asctime)s %(name)-12s %(levelname)-8s %(message)s"
+            }
+        },
+        "handlers": {
+            "console": {
+                "formatter": "simple",
+                "class": "logging.StreamHandler",
+                "stream": "ext://sys.stdout",
+                "level": "DEBUG"
+            },
+            "file_all": {
+                "backupCount": 7,
+                "level": "DEBUG",
+                "interval": 1,
+                "when": "d",
+                "filename": "config/app_all.log",
+                "encoding": "utf8",
+                "formatter": "simple",
+                "class": "logging.handlers.TimedRotatingFileHandler"
+            },
+            "file_error": {
+                "backupCount": 7,
+                "level": "ERROR",
+                "interval": 1,
+                "when": "d",
+                "filename": "config/app_error.log",
+                "encoding": "utf8",
+                "formatter": "simple",
+                "class": "logging.handlers.TimedRotatingFileHandler"
+            }
+        }
+    }
+}
