@@ -16,7 +16,7 @@ import time
 import zmq
 import logging
 import logging.config
-
+import signal
 
 ### Global variables
 context = zmq.Context()
@@ -33,20 +33,17 @@ input.close()
    
 class Watcher:
 
-
     def __init__(self):
         self.observer = Observer()
 
     def run(self):
         global config
-        print("run")
         try:
             watch_file = os.path.realpath(os.path.join(os.environ["WATCH"],config["input-file"]))
             log = logging.getLogger(__name__)
-            log.info(os.path.abspath(watch_file))
-            print("Monitoring for file: %s" %os.path.abspath(watch_file))
+            log.info("Monitoring for file: %s" %os.path.abspath(watch_file))
         except Error as error:
-            print("Error {}".format(error))
+            log.error("Error trying to monitor the file {}".format(error))
         event_handler = Handler()
 
         self.observer.schedule(event_handler, os.path.dirname(os.path.abspath(watch_file)), recursive=False)
@@ -54,14 +51,12 @@ class Watcher:
             self.observer.start()
         
             while True:
-                # print(".",end='')
                 time.sleep(5)
         except Exception as error:
-            print("The monitored folder does not exist. Please fix it.")
-            #exit(1)
+            log.error("The monitored folder does not exist. Please fix it.")
         except:
             self.observer.stop()
-            print("Error")
+            log.error("ERROR: Unknnown error in observer.")
         self.observer.join()
 
 
@@ -75,12 +70,12 @@ class Handler(FileSystemEventHandler):
         log.info(os.path.abspath(os.path.normpath(event.src_path)))
         watch_file = os.path.realpath(os.path.join(os.environ["WATCH"],config["input-file"]))
         isWatchedFile = os.path.normpath(watch_file) == os.path.normpath(event.src_path)
-        print("--> %s, %s, %s -- %s" %(isWatchedFile, event.event_type, os.path.normpath(watch_file),os.path.normpath(event.src_path) ))
+        log.info("--> %s, %s, %s -- %s" %(isWatchedFile, event.event_type, os.path.normpath(watch_file),os.path.normpath(event.src_path) ))
         if event.is_directory:
             return None
         elif (event.event_type == 'created') and isWatchedFile:
             # Take any action here when a file is first created.
-            print("File %s has been %s"  % (event.src_path, event.event_type))
+            log.info(">>>>> File %s has been %s"  % (event.src_path, event.event_type))
             render()
 
 
@@ -99,9 +94,9 @@ def render():
         try:            
             output = file(os.path.join(os.environ["RENDER"],"masterCC.aepx"), 'wb')
         except IOError as error:
-            print("Error, some needed files are missing. Please contact Diego")
+            log.error("Error, some needed files are missing. AEPX not found.")
             return
-        print("Writing aepx :: {}".format(output))
+        #print("Writing aepx :: {}".format(output))
         output.write(stream)
         output.close()
 
@@ -109,7 +104,7 @@ def render():
         src = os.path.realpath(os.path.join(os.environ["WATCH"],config["input-file"]))
         dst = os.path.join(os.environ["RENDER"],'input','input0.jpg')
 
-        print("{} - {}".format(src,dst))
+        #print("{} - {}".format(src,dst))
         copyfile(src, dst)
         
         args = [  
@@ -138,10 +133,10 @@ def render():
 
        
     except Exception as error:
-        print("Render Error, please check the configuration %s" %error)
+        log.error("Render Error, please check the configuration %s" %error)
         os.remove(output.name)
     except subprocess.CalledProcessError as error:
-        print("Error in subprocess. Error Code: %s " %error.returncode)
+        log.error("Error in subprocess. Error Code: %s " %error.returncode)
         os.remove(output.name)
         return error.returncode
 
@@ -150,7 +145,7 @@ def render():
 def zmq_publisher():
     global socket
     socket.bind("tcp://0.0.0.0:{}".format(os.environ["PORT"]))
-    watch_file = os.path.realpath(os.path.join(os.environ["WATCH"],config["input-file"]))
+    
 
 def logging_config():
     global config
@@ -163,7 +158,7 @@ def logging_config():
             log_file_name = logging_config["handlers"][handler]["filename"]
             log_file_path = os.path.abspath(os.path.join(".", log_file_name))
             logging_config["handlers"][handler]["filename"] = log_file_path
-            print("log path: {}".format(log_file_path))
+            #print("log path: {}".format(log_file_path))
 
         logging.config.dictConfig(logging_config)
         log = logging.getLogger(__name__)
@@ -186,15 +181,33 @@ def main():
         with open(config_path) as data_file:
             config = json.load(data_file)
     except:
-        print("OS: {}".format(os.environ))
-        print("Error: Unable to read config file {}".format(os.environ["CONFIG"]), file=sys.stderr)
+        print("ERROR: Unable to read config file {}".format(os.environ["CONFIG"]), file=sys.stderr)
 
     logging_config()
     zmq_publisher()
     watch_folder();
 
+def set_exit_handler(func):
+    signal.signal(signal.SIGTERM, func)
+        
+def on_exit(sig, func=None):
+    global container_id
+    global socket
+    global context
+    global cli
+    
+    log = logging.getLogger(__name__)
+    log.info("Cleaning up and exiting the monitor")
+  
+    socket.close()
+    context.term()
+    try:
+        sys.exit(0)
+    except SystemExit:
+        os._exit(0)
 
 ### entrypoint
 if __name__ == '__main__':
+    set_exit_handler(on_exit)
     main()
    
