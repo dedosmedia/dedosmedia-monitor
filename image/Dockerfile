@@ -7,6 +7,6 @@ WORKDIR /app/
 RUN pip install -r requirements.txt
 RUN ["chmod", "+x", "./monitor.py"]
 
-CMD ["./monitor.py"]
+CMD ["python","./monitor.py"]
 
 EXPOSE 4999

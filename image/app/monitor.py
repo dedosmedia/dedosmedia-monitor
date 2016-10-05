@@ -184,6 +184,7 @@ def main():
         print("ERROR: Unable to read config file {}".format(os.environ["CONFIG"]), file=sys.stderr)
 
     logging_config()
+    set_exit_handler(on_exit)
     zmq_publisher()
     watch_folder();
 
@@ -208,6 +209,6 @@ def on_exit(sig, func=None):
 
 ### entrypoint
 if __name__ == '__main__':
-    set_exit_handler(on_exit)
+    
     main()
    
