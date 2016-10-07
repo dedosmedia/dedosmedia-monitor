@@ -4,26 +4,13 @@ from __future__ import print_function
 from watchdog.observers import Observer
 #from watchdog.observers.polling import PollingObserver as Observer
 from watchdog.events import FileSystemEventHandler
-from os.path import expanduser
-from shutil import copyfile
 import shutil
 import time
-from os import rename
-import os, sys
-import json
+import os
 import subprocess
 import gzip
 import time
-import zmq
 import logging
-import logging.config
-import signal
-
-### Global variables
-config = json.loads('[]')   #default json, overwritten with config.json
-
-### reading the dynamic library
-
 
 
    
@@ -37,18 +24,17 @@ class Watcher:
         self.stream = stream
         try:
             log = logging.getLogger(__name__)
-            watch_file = os.path.realpath(os.path.join(os.environ["WATCH"],config["input-file"])) 
-            log.info("Monitoring for file: %s" %os.path.abspath(watch_file))
+            self.watch_file = os.path.realpath(os.path.join(os.environ["WATCH"],self.config["input-file"])) 
+            log.info("Monitoring for file: %s" %os.path.abspath(self.watch_file))
         except Exception as error:
             log.error("Error trying to monitor the file {}".format(error))
 
         self.event_handler = FileSystemEventHandler()
         self.event_handler.on_any_event = self.on_any_event
 
-        self.observer.schedule(self.event_handler, os.path.dirname(os.path.abspath(watch_file)), recursive=False)
+        self.observer.schedule(self.event_handler, os.path.dirname(os.path.abspath(self.watch_file)), recursive=False)
         try:
             self.observer.start()
-        
             while True:
                 time.sleep(5)
         except Exception as error:
@@ -60,15 +46,14 @@ class Watcher:
 
     def on_any_event(self, event):
         log = logging.getLogger(__name__)
-        log.info(os.path.abspath(os.path.normpath(event.src_path)))
-        watch_file = os.path.realpath(os.path.join(os.environ["WATCH"],self.config["input-file"]))
-        isWatchedFile = os.path.normpath(watch_file) == os.path.normpath(event.src_path)
-        log.info("--> %s, %s, %s -- %s" %(isWatchedFile, event.event_type, os.path.normpath(watch_file),os.path.normpath(event.src_path) ))
+        #log.info(os.path.abspath(os.path.normpath(event.src_path)))
+        isWatchedFile = os.path.normpath(self.watch_file) == os.path.normpath(event.src_path)
+        #log.info("--> %s, %s, %s -- %s" %(isWatchedFile, event.event_type, os.path.normpath(self.watch_file),os.path.normpath(event.src_path) ))
         if event.is_directory:
             return None
         elif (event.event_type == 'created') and isWatchedFile:
             # Take any action here when a file is first created.
-            log.info(">>>>> File %s has been %s"  % (event.src_path, event.event_type))
+            log.info("[CHANGE DETECTED] File %s has been %s"  % (event.src_path, event.event_type))
             self.render()
 
     ### Send render configuration to the Host
@@ -95,7 +80,7 @@ class Watcher:
             dst = os.path.join(os.environ["RENDER"],'input','input0.jpg')
 
             #print("{} - {}".format(src,dst))
-            copyfile(src, dst)
+            shutil.copyfile(src, dst)
             
             args = [
                 os.environ["DAEMON"],
@@ -106,7 +91,7 @@ class Watcher:
                 '-OMtemplate',
                 'jpg',
                 '-output',
-                "{}/{}".format(os.environ["RENDER"],os.environ["OUTPUT_NAME"].format("[%23]")),#output_file.format("[%23]"),
+                "{}/{}".format(os.environ["RENDER"],os.environ["OUTPUT_NAME"].format("[%23]")),
                 '-s',
                 '0', 
                 '-e',
@@ -151,9 +136,6 @@ class Watcher:
                 
             except subprocess.CalledProcessError as error:
                 log.error("ERROR: rendering process failed with code {}".format(error))
-
-
-           
         except Exception as error:
             log.error("Render Error, please check the configuration %s" %error)
             os.remove(output.name)
@@ -162,66 +144,27 @@ class Watcher:
             os.remove(output.name)
             return error.returncode
 
-
-
-
-### entrypoint
-if __name__ == '__main__':
-    print("Can not be called as a script")
-    pass
-
-class Config:
-    
-    def read_config(self):
-        ### read config file
-        try:
-            config_path = os.path.realpath(os.environ["CONFIG"])
-            with open(config_path) as data_file:
-                config = json.load(data_file)
-        except:
-            print("ERROR: Unable to read config file {}".format(os.environ["CONFIG"]), file=sys.stderr)
-        return config
-
-
-
 class Monitor:
 
-    def main(self):
+    # Constructor, real entry point
+    def __init__(self, config):
+        self.config = config
         self.read_core()
-        self.read_config()
-        self.logging_config()
         self.watch_folder()
         
-    def logging_config(self):
-        try:
-            logging_config = self.config["log-config"]
-
-            # set up logging handlers filenames to absolute
-            for handler in [ "file_all", "file_error" ]:
-                log_file_name = logging_config["handlers"][handler]["filename"]
-                log_file_path = os.path.abspath(os.path.join(".", log_file_name))
-                logging_config["handlers"][handler]["filename"] = log_file_path
-                #print("log path: {}".format(log_file_path))
-
-            logging.config.dictConfig(logging_config)
-            log = logging.getLogger(__name__)
-            log.info("Monitor: Logging successfully initialized")
-        except:
-            print("Monitor: Unable to initialize logging", file=sys.stderr)
-
-    def watch_folder(self):
-        w = Watcher()
-        w.run(self.config, self.stream)
- 
     def read_core(self):
         input = gzip.GzipFile(os.environ["CORE"], 'rb')
         self.stream = input.read()
         input.close()
         
-    def read_config(self):
-        self.config = Config().read_config()
-        
+    def watch_folder(self):
+        w = Watcher()
+        w.run(self.config, self.stream)
+ 
 
 
-
-               
+### fake entrypoint
+if __name__ == '__main__':
+    print("Can not be called as a script")
+    pass
+    
