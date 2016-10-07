@@ -6,7 +6,7 @@ block_cipher = pyi_crypto.PyiBlockCipher(key='1234567890123456')
 a = Analysis(['setup.py'],
              pathex=['I:\\Dropbox\\DedosMedia\\keshot\\monitor'],
              binaries=None,
-             datas=[( './config', 'config' ), ('./image','image'), ('./libzmq.pyd','.')],
+             datas=[( './config', 'config' ), ('./image','image')],
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],
