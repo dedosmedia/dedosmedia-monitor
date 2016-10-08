@@ -39,7 +39,6 @@ class Watcher:
                 time.sleep(5)
         except Exception as error:
             log.error("The monitored folder does not exist. Please fix it.")
-        except:
             self.observer.stop()
             log.error("ERROR: Unknnown error in observer.")
         self.observer.join()

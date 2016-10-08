@@ -160,7 +160,7 @@ class Setup():
                 raise Exception("pywin32 not installed for Python " + version)
         else:
             import signal
-            signal.signal(signal.SIGTERM, func)
+            signal.signal(signal.SIGINT, func)
             
     # exiting the script        
     def on_exit(self, sig, func=None):        
